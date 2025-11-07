@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Longevity">
+    <title>Longevity Protocol Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">💪</div>
+            <div class="loading-text">Longevity Protocol</div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" class="app" style="display: none;">
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-view="today">
+                <span class="nav-icon">📅</span>
+                <span class="nav-label">Today</span>
+            </button>
+            <button class="nav-btn" data-view="workout">
+                <span class="nav-icon">🏋️</span>
+                <span class="nav-label">Workout</span>
+            </button>
+            <button class="nav-btn" data-view="progress">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </button>
+            <button class="nav-btn" data-view="health">
+                <span class="nav-icon">❤️</span>
+                <span class="nav-label">Health</span>
+            </button>
+            <button class="nav-btn" data-view="settings">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-label">Settings</span>
+            </button>
+        </nav>
+
+        <!-- Today View -->
+        <div id="today-view" class="view active">
+            <div class="view-header">
+                <h1>Today</h1>
+                <div class="date-display" id="current-date"></div>
+            </div>
+            
+            <div class="view-content">
+                <!-- Current Phase Card -->
+                <div class="card phase-card">
+                    <div class="card-header">
+                        <h2>Current Phase</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="phase-info">
+                            <div class="phase-name" id="current-phase-name">Phase Zero</div>
+                            <div class="phase-week">Week <span id="current-week">1</span> of 52</div>
+                            <div class="phase-progress">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="phase-progress-fill" style="width: 0%"></div>
+                                </div>
+                                <div class="progress-text"><span id="phase-progress-percent">0</span>% Complete</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Today's Workout Card -->
+                <div class="card workout-card">
+                    <div class="card-header">
+                        <h2>Today's Workout</h2>
+                        <button class="btn-primary" id="start-workout-btn">Start Workout</button>
+                    </div>
+                    <div class="card-content">
+                        <div id="today-workout-content" class="workout-preview">
+                            <div class="empty-state">
+                                <div class="empty-icon">🏋️</div>
+                                <p>No workout scheduled for today</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Health Metrics Card -->
+                <div class="card metrics-card">
+                    <div class="card-header">
+                        <h2>Today's Health Metrics</h2>
+                        <button class="btn-secondary" id="log-metrics-btn">Log Metrics</button>
+                    </div>
+                    <div class="card-content">
+                        <div class="metrics-grid" id="today-metrics">
+                            <div class="metric-item">
+                                <div class="metric-icon">🩺</div>
+                                <div class="metric-label">Blood Pressure</div>
+                                <div class="metric-value" id="bp-value">--/--</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-icon">⚖️</div>
+                                <div class="metric-label">Body Weight</div>
+                                <div class="metric-value" id="weight-value">--</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-icon">🚭</div>
+                                <div class="metric-label">Smoke-Free Days</div>
+                                <div class="metric-value" id="smoke-free-days">0</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-icon">🍺</div>
+                                <div class="metric-label">Alcohol-Free Days</div>
+                                <div class="metric-value" id="alcohol-free-days">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Habit Tracking Card -->
+                <div class="card habits-card">
+                    <div class="card-header">
+                        <h2>Daily Habits</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="habits-list" id="habits-list">
+                            <!-- Habits will be dynamically loaded -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Workout View -->
+        <div id="workout-view" class="view">
+            <div class="view-header">
+                <h1>Workout</h1>
+                <button class="btn-secondary" id="select-workout-btn">Select Workout</button>
+            </div>
+            
+            <div class="view-content">
+                <div id="workout-content">
+                    <!-- Active workout or workout selection will be shown here -->
+                    <div class="empty-state">
+                        <div class="empty-icon">🏋️</div>
+                        <p>Select or start a workout</p>
+                        <button class="btn-primary" id="browse-workouts-btn">Browse Workouts</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress View -->
+        <div id="progress-view" class="view">
+            <div class="view-header">
+                <h1>Progress</h1>
+                <div class="progress-tabs">
+                    <button class="tab-btn active" data-tab="strength">Strength</button>
+                    <button class="tab-btn" data-tab="health">Health</button>
+                    <button class="tab-btn" data-tab="behavior">Behavior</button>
+                </div>
+            </div>
+            
+            <div class="view-content">
+                <!-- Strength Tab -->
+                <div id="strength-tab" class="tab-content active">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Strength Progress</h2>
+                        </div>
+                        <div class="card-content">
+                            <div id="strength-charts">
+                                <div class="chart-placeholder">
+                                    <p>Track your workouts to see progress</p>
+                                </div>
+                            </div>
+                            <div id="strength-stats" class="stats-grid">
+                                <!-- Stats will be populated dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Health Tab -->
+                <div id="health-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Health Metrics</h2>
+                        </div>
+                        <div class="card-content">
+                            <div id="health-charts">
+                                <div class="chart-placeholder">
+                                    <p>Log health metrics to see trends</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Behavior Tab -->
+                <div id="behavior-tab" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Behavioral Compliance</h2>
+                        </div>
+                        <div class="card-content">
+                            <div id="behavior-stats" class="stats-grid">
+                                <!-- Behavioral stats will be populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health View -->
+        <div id="health-view" class="view">
+            <div class="view-header">
+                <h1>Health Tracking</h1>
+                <button class="btn-primary" id="add-health-entry-btn">Add Entry</button>
+            </div>
+            
+            <div class="view-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Recent Entries</h2>
+                    </div>
+                    <div class="card-content">
+                        <div id="health-entries-list">
+                            <!-- Health entries will be listed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Safety Reminders Card -->
+                <div class="card warning-card">
+                    <div class="card-header">
+                        <h2>⚠️ Safety Protocols</h2>
+                    </div>
+                    <div class="card-content">
+                        <ul class="safety-list">
+                            <li><strong>Scoliosis:</strong> Avoid barbell squats, deadlifts, and twisting exercises</li>
+                            <li><strong>High BP:</strong> Exhale on exertion, avoid Valsalva maneuver</li>
+                            <li><strong>Gout:</strong> Stop all exercise during acute flare-ups</li>
+                            <li><strong>Always:</strong> 5-10 min warm-up and cool-down mandatory</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings View -->
+        <div id="settings-view" class="view">
+            <div class="view-header">
+                <h1>Settings</h1>
+            </div>
+            
+            <div class="view-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Profile & Protocol</h2>
+                    </div>
+                    <div class="card-content">
+                        <div class="settings-group">
+                            <label>Start Date</label>
+                            <input type="date" id="start-date-input" class="input-field">
+                        </div>
+                        <div class="settings-group">
+                            <label>Current Week</label>
+                            <input type="number" id="current-week-input" min="1" max="52" class="input-field">
+                        </div>
+                        <div class="settings-group">
+                            <label>Accountability Partner Email</label>
+                            <input type="email" id="partner-email-input" class="input-field" placeholder="partner@email.com">
+                        </div>
+                        <button class="btn-primary" id="save-settings-btn">Save Settings</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Data Management</h2>
+                    </div>
+                    <div class="card-content">
+                        <button class="btn-secondary" id="export-data-btn">Export Data</button>
+                        <button class="btn-secondary" id="import-data-btn">Import Data</button>
+                        <button class="btn-danger" id="clear-data-btn">Clear All Data</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>About</h2>
+                    </div>
+                    <div class="card-content">
+                        <p><strong>Longevity Protocol Tracker</strong></p>
+                        <p>Version 1.0.0</p>
+                        <p>12-Month Integrated Longevity Protocol</p>
+                        <p>For adult males 50+ with chronic health considerations</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-content" class="modal-content">
+            <!-- Modal content will be inserted here dynamically -->
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
