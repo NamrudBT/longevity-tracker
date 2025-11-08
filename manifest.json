@@ -2,7 +2,7 @@
   "name": "Longevity Protocol Tracker",
   "short_name": "Longevity",
   "description": "12-Month Integrated Longevity Protocol Tracker for fitness, health, and behavioral compliance",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0A0E14",
   "theme_color": "#FF4D4D",
