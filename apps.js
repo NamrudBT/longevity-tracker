@@ -374,19 +374,38 @@ function loadData() {
         if (saved) {
             const data = JSON.parse(saved);
             Object.assign(state, data);
+
+            // Ensure all required data structures exist
+            if (!state.userData) state.userData = {};
+            if (!Array.isArray(state.userData.healthMetrics)) state.userData.healthMetrics = [];
+            if (!Array.isArray(state.userData.workoutHistory)) state.userData.workoutHistory = [];
+            if (!Array.isArray(state.userData.habits) || state.userData.habits.length === 0) {
+                state.userData.habits = DEFAULT_HABITS.map(h => ({...h}));
+            }
+            if (!state.startDate) state.startDate = new Date().toISOString().split('T')[0];
+            if (!state.currentWeek || state.currentWeek < 1) state.currentWeek = 1;
+
             console.log('Data loaded successfully');
         } else {
-            state.startDate = new Date().toISOString().split('T')[0];
-            state.currentWeek = 1;
-            state.userData.habits = DEFAULT_HABITS.map(h => ({...h}));
+            initializeDefaultState();
             saveData();
         }
     } catch (error) {
         console.error('Error loading data:', error);
-        state.startDate = new Date().toISOString().split('T')[0];
-        state.currentWeek = 1;
-        state.userData.habits = DEFAULT_HABITS.map(h => ({...h}));
+        initializeDefaultState();
     }
+}
+
+function initializeDefaultState() {
+    state.startDate = new Date().toISOString().split('T')[0];
+    state.currentWeek = 1;
+    state.userData = {
+        profileEmail: '',
+        partnerEmail: '',
+        healthMetrics: [],
+        workoutHistory: [],
+        habits: DEFAULT_HABITS.map(h => ({...h}))
+    };
 }
 
 function saveData() {
@@ -412,18 +431,49 @@ function exportData() {
 }
 
 function importData(file) {
+    if (!file) {
+        showNotification('No file selected', 'info');
+        return;
+    }
+
+    if (!file.name.endsWith('.json')) {
+        showNotification('Please select a valid JSON file', 'info');
+        return;
+    }
+
     const reader = new FileReader();
+    reader.onerror = () => {
+        console.error('Error reading file');
+        showNotification('Failed to read file', 'info');
+    };
+
     reader.onload = (e) => {
         try {
             const imported = JSON.parse(e.target.result);
+
+            // Validate the imported data structure
+            if (typeof imported !== 'object' || imported === null) {
+                throw new Error('Invalid data format');
+            }
+
+            // Merge the imported data with state
             Object.assign(state, imported);
+
+            // Ensure critical data structures exist
+            if (!state.userData) state.userData = {};
+            if (!Array.isArray(state.userData.healthMetrics)) state.userData.healthMetrics = [];
+            if (!Array.isArray(state.userData.workoutHistory)) state.userData.workoutHistory = [];
+            if (!Array.isArray(state.userData.habits)) state.userData.habits = DEFAULT_HABITS.map(h => ({...h}));
+
             saveData();
-            location.reload();
+            showNotification('Data imported successfully! Reloading...', 'success');
+            setTimeout(() => location.reload(), 1000);
         } catch (error) {
             console.error('Error importing data:', error);
-            alert('Failed to import data. Please check the file format.');
+            showNotification('Failed to import data. Please check the file format.', 'info');
         }
     };
+
     reader.readAsText(file);
 }
 
@@ -561,11 +611,16 @@ function calculateCurrentPhase() {
 function renderPhaseCard() {
     const phase = calculateCurrentPhase();
     const weekProgress = ((state.currentWeek - 1) / 52) * 100;
-    
-    document.getElementById('current-phase-name').textContent = phase.name;
-    document.getElementById('current-week').textContent = state.currentWeek;
-    document.getElementById('phase-progress-fill').style.width = weekProgress + '%';
-    document.getElementById('phase-progress-percent').textContent = Math.round(weekProgress);
+
+    const phaseNameElement = document.getElementById('current-phase-name');
+    const currentWeekElement = document.getElementById('current-week');
+    const progressFillElement = document.getElementById('phase-progress-fill');
+    const progressPercentElement = document.getElementById('phase-progress-percent');
+
+    if (phaseNameElement) phaseNameElement.textContent = phase.name;
+    if (currentWeekElement) currentWeekElement.textContent = state.currentWeek;
+    if (progressFillElement) progressFillElement.style.width = weekProgress + '%';
+    if (progressPercentElement) progressPercentElement.textContent = Math.round(weekProgress);
 }
 
 function renderTodayWorkout() {
@@ -657,32 +712,44 @@ function getEstimatedTime(phase) {
 function renderTodayMetrics() {
     const today = new Date().toISOString().split('T')[0];
     const todayMetrics = state.userData.healthMetrics.find(m => m.date === today);
-    
+
     if (todayMetrics) {
-        if (todayMetrics.bloodPressure) {
-            document.getElementById('bp-value').textContent = 
-                `${todayMetrics.bloodPressure.systolic}/${todayMetrics.bloodPressure.diastolic}`;
+        if (todayMetrics.bloodPressure && todayMetrics.bloodPressure.systolic && todayMetrics.bloodPressure.diastolic) {
+            const bpElement = document.getElementById('bp-value');
+            if (bpElement) {
+                bpElement.textContent =
+                    `${todayMetrics.bloodPressure.systolic}/${todayMetrics.bloodPressure.diastolic}`;
+            }
         }
         if (todayMetrics.weight) {
-            document.getElementById('weight-value').textContent = 
-                `${todayMetrics.weight} lbs`;
+            const weightElement = document.getElementById('weight-value');
+            if (weightElement) {
+                weightElement.textContent = `${todayMetrics.weight} lbs`;
+            }
         }
     }
-    
+
     const smokeFree = calculateStreakDays('smokeFree');
     const alcoholFree = calculateStreakDays('alcoholFree');
-    
-    document.getElementById('smoke-free-days').textContent = smokeFree;
-    document.getElementById('alcohol-free-days').textContent = alcoholFree;
+
+    const smokeFreeElement = document.getElementById('smoke-free-days');
+    const alcoholFreeElement = document.getElementById('alcohol-free-days');
+
+    if (smokeFreeElement) smokeFreeElement.textContent = smokeFree;
+    if (alcoholFreeElement) alcoholFreeElement.textContent = alcoholFree;
 }
 
 function calculateStreakDays(type) {
-    const metrics = state.userData.healthMetrics
+    if (!state.userData.healthMetrics || state.userData.healthMetrics.length === 0) {
+        return 0;
+    }
+
+    const metrics = [...state.userData.healthMetrics]
         .sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     let streak = 0;
     for (const metric of metrics) {
-        if (metric[type] === true) {
+        if (metric && metric[type] === true) {
             streak++;
         } else {
             break;
@@ -842,15 +909,18 @@ function buildCustomWorkout() {
 
 function toggleExerciseSelection(exerciseId) {
     const item = document.querySelector(`[data-exercise-id="${exerciseId}"]`);
-    item.classList.toggle('selected');
+    if (item) {
+        item.classList.toggle('selected');
+    }
 }
 
 function beginCustomWorkout() {
     const selected = Array.from(document.querySelectorAll('.exercise-item.selected'))
-        .map(item => item.dataset.exerciseId);
-    
+        .map(item => item.dataset.exerciseId)
+        .filter(id => id && EXERCISES[id]);
+
     if (selected.length === 0) {
-        alert('Please select at least one exercise');
+        showNotification('Please select at least one exercise', 'info');
         return;
     }
     
@@ -915,6 +985,10 @@ function renderActiveWorkout() {
 
 function renderExerciseTracker(exercise, index) {
     const exerciseData = EXERCISES[exercise.id];
+    if (!exerciseData) {
+        console.error(`Exercise ${exercise.id} not found in EXERCISES database`);
+        return '<div class="exercise-section"><p>Exercise data not found</p></div>';
+    }
     const numSets = exercise.targetSets || 3;
     
     return `
@@ -970,9 +1044,26 @@ function startWorkoutTimer() {
 }
 
 function addSet(exerciseId) {
-    const container = document.querySelector(`[data-exercise="${exerciseId}"]`)?.closest('.exercise-section')?.querySelector('.sets-container');
-    if (!container) return;
-    
+    if (!exerciseId) return;
+
+    const exerciseElement = document.querySelector(`[data-exercise="${exerciseId}"]`);
+    if (!exerciseElement) {
+        console.error(`Exercise element for ${exerciseId} not found`);
+        return;
+    }
+
+    const exerciseSection = exerciseElement.closest('.exercise-section');
+    if (!exerciseSection) {
+        console.error(`Exercise section for ${exerciseId} not found`);
+        return;
+    }
+
+    const container = exerciseSection.querySelector('.sets-container');
+    if (!container) {
+        console.error(`Sets container for ${exerciseId} not found`);
+        return;
+    }
+
     const setNumber = container.querySelectorAll('.set-tracker').length + 1;
     const newSet = renderSetTracker(exerciseId, setNumber);
     container.insertAdjacentHTML('beforeend', newSet);
@@ -980,18 +1071,23 @@ function addSet(exerciseId) {
 
 function completeWorkout() {
     if (workoutTimer) clearInterval(workoutTimer);
-    
+
+    if (!state.activeWorkout) {
+        showNotification('No active workout found', 'info');
+        return;
+    }
+
     state.activeWorkout.exercises.forEach(exercise => {
         const trackers = document.querySelectorAll(`[data-exercise="${exercise.id}"]`);
         exercise.sets = Array.from(trackers).map(tracker => {
-            const weight = tracker.querySelector('[data-field="weight"]').value;
-            const reps = tracker.querySelector('[data-field="reps"]').value;
-            const rpe = tracker.querySelector('[data-field="rpe"]').value;
-            
+            const weightInput = tracker.querySelector('[data-field="weight"]');
+            const repsInput = tracker.querySelector('[data-field="reps"]');
+            const rpeInput = tracker.querySelector('[data-field="rpe"]');
+
             return {
-                weight: weight ? parseFloat(weight) : 0,
-                reps: reps ? parseInt(reps) : 0,
-                rpe: rpe ? parseInt(rpe) : 0
+                weight: weightInput && weightInput.value ? parseFloat(weightInput.value) : 0,
+                reps: repsInput && repsInput.value ? parseInt(repsInput.value) : 0,
+                rpe: rpeInput && rpeInput.value ? parseInt(rpeInput.value) : 0
             };
         }).filter(set => set.reps > 0);
     });
@@ -1039,14 +1135,20 @@ function renderProgressView() {
 
 function renderStrengthProgress() {
     const container = document.getElementById('strength-stats');
-    const workouts = state.userData.workoutHistory;
-    
+    const chartsContainer = document.getElementById('strength-charts');
+
+    if (!container) return;
+
+    const workouts = state.userData.workoutHistory || [];
+
     if (workouts.length === 0) {
-        document.getElementById('strength-charts').innerHTML = `
-            <div class="chart-placeholder">
-                <p>Complete workouts to see your strength progress</p>
-            </div>
-        `;
+        if (chartsContainer) {
+            chartsContainer.innerHTML = `
+                <div class="chart-placeholder">
+                    <p>Complete workouts to see your strength progress</p>
+                </div>
+            `;
+        }
         container.innerHTML = `
             <div class="stat-item">
                 <div class="stat-label">Total Workouts</div>
@@ -1055,13 +1157,19 @@ function renderStrengthProgress() {
         `;
         return;
     }
-    
+
     const totalWorkouts = workouts.length;
-    const totalSets = workouts.reduce((sum, w) => 
-        sum + w.exercises.reduce((s, e) => s + e.sets.length, 0), 0);
-    const avgRPE = workouts.reduce((sum, w) => 
-        sum + w.exercises.reduce((s, e) => 
-            s + e.sets.reduce((r, set) => r + (set.rpe || 0), 0) / Math.max(e.sets.length, 1), 0) / Math.max(w.exercises.length, 1), 0) / workouts.length;
+    const totalSets = workouts.reduce((sum, w) =>
+        sum + (w.exercises ? w.exercises.reduce((s, e) => s + (e.sets ? e.sets.length : 0), 0) : 0), 0);
+    const avgRPE = workouts.reduce((sum, w) => {
+        if (!w.exercises || w.exercises.length === 0) return sum;
+        const workoutAvg = w.exercises.reduce((s, e) => {
+            if (!e.sets || e.sets.length === 0) return s;
+            const exerciseAvg = e.sets.reduce((r, set) => r + (set.rpe || 0), 0) / e.sets.length;
+            return s + exerciseAvg;
+        }, 0) / w.exercises.length;
+        return sum + workoutAvg;
+    }, 0) / workouts.length;
     
     container.innerHTML = `
         <div class="stat-item">
@@ -1084,31 +1192,40 @@ function renderStrengthProgress() {
 }
 
 function calculateWorkoutStreak() {
-    const workouts = state.userData.workoutHistory
+    if (!state.userData.workoutHistory || state.userData.workoutHistory.length === 0) {
+        return 0;
+    }
+
+    const workouts = [...state.userData.workoutHistory]
         .sort((a, b) => new Date(b.date) - new Date(a.date));
-    
+
     let streak = 0;
     let currentDate = new Date();
-    
+    currentDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
     for (const workout of workouts) {
         const workoutDate = new Date(workout.date);
+        workoutDate.setHours(0, 0, 0, 0); // Normalize to start of day
+
         const daysDiff = Math.floor((currentDate - workoutDate) / (1000 * 60 * 60 * 24));
-        
-        if (daysDiff <= 1) {
+
+        if (daysDiff <= 2) { // Allow for rest days
             streak++;
             currentDate = workoutDate;
         } else {
             break;
         }
     }
-    
+
     return streak;
 }
 
 function renderHealthProgress() {
     const container = document.getElementById('health-charts');
-    const metrics = state.userData.healthMetrics;
-    
+    if (!container) return;
+
+    const metrics = state.userData.healthMetrics || [];
+
     if (metrics.length === 0) {
         container.innerHTML = `
             <div class="chart-placeholder">
@@ -1117,7 +1234,7 @@ function renderHealthProgress() {
         `;
         return;
     }
-    
+
     const recent = metrics.slice(-10).reverse();
     container.innerHTML = `
         <div class="metrics-history">
@@ -1125,7 +1242,8 @@ function renderHealthProgress() {
                 <div class="metric-entry">
                     <div class="metric-date">${new Date(m.date).toLocaleDateString()}</div>
                     <div class="metric-values">
-                        ${m.bloodPressure ? `BP: ${m.bloodPressure.systolic}/${m.bloodPressure.diastolic}` : ''}
+                        ${m.bloodPressure && m.bloodPressure.systolic && m.bloodPressure.diastolic ?
+                            `BP: ${m.bloodPressure.systolic}/${m.bloodPressure.diastolic}` : ''}
                         ${m.weight ? `Weight: ${m.weight} lbs` : ''}
                     </div>
                 </div>
@@ -1166,9 +1284,12 @@ function renderBehaviorProgress() {
 }
 
 function calculateHabitCompletion() {
-    const completed = state.userData.habits.filter(h => h.completed).length;
+    if (!state.userData.habits || state.userData.habits.length === 0) {
+        return 0;
+    }
+    const completed = state.userData.habits.filter(h => h && h.completed).length;
     const total = state.userData.habits.length;
-    return Math.round((completed / total) * 100);
+    return total > 0 ? Math.round((completed / total) * 100) : 0;
 }
 
 // ============================================================================
@@ -1273,11 +1394,23 @@ function openHealthMetricsModal() {
 
 function saveHealthMetrics() {
     const today = new Date().toISOString().split('T')[0];
-    const systolic = document.getElementById('bp-systolic').value;
-    const diastolic = document.getElementById('bp-diastolic').value;
-    const weight = document.getElementById('weight-input').value;
-    const smokeFree = document.getElementById('smoke-free-check').checked;
-    const alcoholFree = document.getElementById('alcohol-free-check').checked;
+
+    const systolicElement = document.getElementById('bp-systolic');
+    const diastolicElement = document.getElementById('bp-diastolic');
+    const weightElement = document.getElementById('weight-input');
+    const smokeFreeElement = document.getElementById('smoke-free-check');
+    const alcoholFreeElement = document.getElementById('alcohol-free-check');
+
+    if (!systolicElement || !diastolicElement || !weightElement || !smokeFreeElement || !alcoholFreeElement) {
+        console.error('Health metrics form elements not found');
+        return;
+    }
+
+    const systolic = systolicElement.value;
+    const diastolic = diastolicElement.value;
+    const weight = weightElement.value;
+    const smokeFree = smokeFreeElement.checked;
+    const alcoholFree = alcoholFreeElement.checked;
     
     state.userData.healthMetrics = state.userData.healthMetrics.filter(m => m.date !== today);
     
@@ -1323,16 +1456,33 @@ window.saveHealthMetrics = saveHealthMetrics;
 // ============================================================================
 
 function renderSettingsView() {
-    document.getElementById('start-date-input').value = state.startDate || '';
-    document.getElementById('current-week-input').value = state.currentWeek || 1;
-    document.getElementById('partner-email-input').value = state.userData.partnerEmail || '';
+    const startDateElement = document.getElementById('start-date-input');
+    const currentWeekElement = document.getElementById('current-week-input');
+    const partnerEmailElement = document.getElementById('partner-email-input');
+
+    if (startDateElement) startDateElement.value = state.startDate || '';
+    if (currentWeekElement) currentWeekElement.value = state.currentWeek || 1;
+    if (partnerEmailElement) partnerEmailElement.value = state.userData.partnerEmail || '';
 }
 
 function saveSettings() {
-    state.startDate = document.getElementById('start-date-input').value;
-    state.currentWeek = parseInt(document.getElementById('current-week-input').value) || 1;
-    state.userData.partnerEmail = document.getElementById('partner-email-input').value;
-    
+    const startDateElement = document.getElementById('start-date-input');
+    const currentWeekElement = document.getElementById('current-week-input');
+    const partnerEmailElement = document.getElementById('partner-email-input');
+
+    if (startDateElement) {
+        state.startDate = startDateElement.value;
+    }
+
+    if (currentWeekElement) {
+        const weekValue = parseInt(currentWeekElement.value);
+        state.currentWeek = (weekValue >= 1 && weekValue <= 52) ? weekValue : 1;
+    }
+
+    if (partnerEmailElement) {
+        state.userData.partnerEmail = partnerEmailElement.value;
+    }
+
     saveData();
     calculateCurrentPhase();
     renderTodayView();
